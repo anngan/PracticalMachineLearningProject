@@ -1,0 +1,102 @@
+title: 'Peer-graded Assignment: Statistical Inference Course Project'
+author: "anngan"
+date: "31 July 2017"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Practical Machine Learning: Course Project
+
+### Executive Summary
+In this project, we will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participant They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The five ways are exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Only Class A corresponds to correct performance. The goal of this project is to predict the manner in which they did the exercise, i.e., Class A to E. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+
+Firstly, let's load all the required libraries or packages.
+
+```{r, echo=TRUE}
+library(caret)
+library(rattle)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(repmis)
+```
+
+###  1. Importing the data, assigning train and test sets. It is possible to examine the basic summary of the data. Through that we will know what sort of data we will be dealing with. The training dataset includes 19622 observations and 160 variables while the testing data includes the same variables as the training set and 20 observations. Moreover, the data needs to be cleaned in order to be processed: removing missing values, etc.
+
+```{r, echo=TRUE}
+trainurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- source_data(trainurl, na.strings = c("NA", "#DIV/0!", ""), header = TRUE)
+testing <- source_data(testurl, na.strings = c("NA", "#DIV/0!", ""), header = TRUE)
+```
+
+```{r, echo=TRUE}
+training <- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
+
+trainData <- training[, -c(1:7)]
+testData <- testing[, -c(1:7)]
+```
+
+### 2. Next step is organizing the data further to account for out of sample errors. The data needs to be split between the trainsing set (70%) in prediction and validation (30%). Through that, the out of sample errors can be calculated. For that, the seed must be set.
+
+
+```{r, echo=TRUE}
+set.seed(7826) 
+inTrain <- createDataPartition(trainData$classe, p = 0.7, list = FALSE)
+train <- trainData[inTrain, ]
+valid <- trainData[-inTrain, ]
+```
+
+
+### 3. In this step we will try to use classification trees and k-fold cross validation (k=5, k=10). See Figure 1 in Appendices for the plot of the model. See the accuracy rate.
+
+```{r, echo=TRUE}
+control <- trainControl(method = "cv", number = 5)
+fit_rpart <- train(classe ~ ., data = train, method = "rpart", 
+                   trControl = control)
+print(fit_rpart, digits = 4)
+```
+```{r, echo=TRUE}
+predict_rpart <- predict(fit_rpart, valid)
+(conf_rpart <- confusionMatrix(valid$classe, predict_rpart))
+```
+```{r, echo=TRUE}
+(accuracy_rpart <- conf_rpart$overall[1])
+```
+
+###   4. Since the accuracy rate was rather low, we will use random forests in this step to check for the accuracy. The accuracy achieved through the application of this method appears to be significantly higher. Lastly, we use this method on the testing set.
+
+```{r, echo=TRUE}
+fit_rf <- train(classe ~ ., data = train, method = "rf", 
+                   trControl = control)
+print(fit_rf, digits = 4)
+```
+
+```{r, echo=TRUE}
+predict_rf <- predict(fit_rf, valid)
+(conf_rf <- confusionMatrix(valid$classe, predict_rf))
+```
+
+```{r, echo=TRUE}
+(accuracy_rf <- conf_rf$overall[1])
+```
+
+```{r, echo=TRUE}
+(predict(fit_rf, testData))
+```
+
+###   5. Appendices
+1.
+```{r, echo=TRUE}
+fancyRpartPlot(fit_rpart$finalModel)
+```
+
+
